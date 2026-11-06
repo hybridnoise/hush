@@ -7,240 +7,436 @@
 <meta name="description" content="Interrupt barking, reward quiet.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Hush">
-<meta name="theme-color" content="#0e1418">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <style>
+  /* iOS system colors, light and dark */
   :root {
-    --bg: #0e1418;
-    --surface: #172026;
-    --surface-2: #1f2a31;
-    --line: #2a363e;
-    --text: #eef3f5;
-    --muted: #93a3ad;
-    --interrupt: #f2a03d;
-    --interrupt-ink: #2a1a05;
-    --good: #3fcf8e;
-    --good-ink: #05261a;
-    --accent: #6cc4d8;
-    --radius: 22px;
+    color-scheme: light dark;
+    --bg: #f2f2f7;
+    --card: #ffffff;
+    --fill: rgba(118, 118, 128, 0.12);
+    --fill-2: rgba(118, 118, 128, 0.2);
+    --label: #000000;
+    --label-2: rgba(60, 60, 67, 0.6);
+    --label-3: rgba(60, 60, 67, 0.3);
+    --sep: rgba(60, 60, 67, 0.29);
+    --orange: #ff9500;
+    --green: #34c759;
+    --blue: #007aff;
+    --indigo: #5856d6;
+    --teal: #30b0c7;
+    --red: #ff3b30;
+    --gray: #8e8e93;
+    --tint: var(--orange);
+    --seg-on: #ffffff;
+    --bar: rgba(249, 249, 249, 0.86);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --rounded: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif;
   }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --card: #1c1c1e;
+      --fill: rgba(118, 118, 128, 0.24);
+      --fill-2: rgba(118, 118, 128, 0.36);
+      --label: #ffffff;
+      --label-2: rgba(235, 235, 245, 0.6);
+      --label-3: rgba(235, 235, 245, 0.3);
+      --sep: rgba(84, 84, 88, 0.65);
+      --orange: #ff9f0a;
+      --green: #30d158;
+      --blue: #0a84ff;
+      --indigo: #5e5ce6;
+      --teal: #40c8e0;
+      --red: #ff453a;
+      --seg-on: #636366;
+      --bar: rgba(22, 22, 23, 0.82);
+      --shadow: none;
+    }
+  }
+
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
+  html { background: var(--bg); }
   body {
-    font: 16px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    margin: 0; background: var(--bg); color: var(--label);
+    font: 17px/1.29 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    letter-spacing: -0.41px;
     -webkit-font-smoothing: antialiased;
     -webkit-user-select: none; user-select: none;
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
-    display: flex; flex-direction: column;
-    padding-top: env(safe-area-inset-top);
-    overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) calc(49px + env(safe-area-inset-bottom) + 28px) env(safe-area-inset-left);
   }
-  button { font: inherit; color: inherit; touch-action: manipulation; cursor: pointer; }
+  button { font: inherit; color: inherit; letter-spacing: inherit; touch-action: manipulation; cursor: pointer; }
+  svg { display: block; }
 
-  header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 20px 4px;
+  .view { display: none; max-width: 560px; margin: 0 auto; padding: 0 16px; }
+  .view.on { display: block; }
+
+  /* Large title */
+  .title { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 14px 4px 4px; }
+  h1 { margin: 0; font-size: 34px; line-height: 41px; font-weight: 700; letter-spacing: 0.37px; }
+  .lede { margin: 2px 4px 18px; font-size: 15px; line-height: 20px; letter-spacing: -0.24px; color: var(--label-2); min-height: 40px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 2px;
+    border: 0; border-radius: 999px; background: var(--fill);
+    padding: 6px 8px 6px 12px; margin-bottom: 6px;
+    font-size: 15px; font-weight: 600; letter-spacing: -0.24px; color: var(--tint);
   }
-  header h1 { margin: 0; font-size: 22px; letter-spacing: -0.01em; }
-  .chip {
-    border: 1px solid var(--line); background: var(--surface); border-radius: 999px;
-    padding: 6px 12px; font-size: 14px; color: var(--muted);
+  .pill svg { width: 16px; height: 16px; opacity: .8; }
+
+  /* Hero buttons */
+  .hero {
+    position: relative; overflow: hidden; width: 100%;
+    display: flex; align-items: center; gap: 16px;
+    border: 0; border-radius: 26px; padding: 22px 22px;
+    min-height: 132px; text-align: left;
+    transition: transform .25s cubic-bezier(.3, 1.4, .5, 1), background-color .25s, color .25s;
+  }
+  .hero + .hero { margin-top: 12px; }
+  .hero:active, .hero.pressed { transform: scale(0.97); transition-duration: .08s; }
+  .hero .glyph {
+    position: relative; flex: none; width: 58px; height: 58px; border-radius: 50%;
+    display: grid; place-items: center;
+  }
+  .hero .glyph svg { width: 30px; height: 30px; }
+  .hero .text { position: relative; display: flex; flex-direction: column; gap: 3px; }
+  .hero .label { font-size: 28px; line-height: 34px; font-weight: 700; letter-spacing: 0.36px; }
+  .hero .sub { font-size: 15px; line-height: 20px; letter-spacing: -0.24px; opacity: .8; }
+
+  .interrupt { background: var(--orange); color: #fff; box-shadow: 0 8px 24px -10px var(--orange); }
+  .interrupt .glyph { background: rgba(255, 255, 255, 0.22); }
+  .interrupt.playing .glyph { animation: ping 0.9s ease-out infinite; }
+  @keyframes ping {
+    0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.55); }
+    100% { box-shadow: 0 0 0 18px rgba(255, 255, 255, 0); }
   }
 
-  main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  .view { display: none; padding: 12px 20px 24px; max-width: 520px; margin: 0 auto; }
-  .view.on { display: flex; flex-direction: column; gap: 14px; }
-
-  .hint { margin: 0; color: var(--muted); font-size: 15px; text-align: center; min-height: 2.9em; }
-
-  /* Big action buttons */
-  .big {
-    position: relative; overflow: hidden;
-    border: 0; border-radius: var(--radius);
-    min-height: 150px; padding: 18px;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-    transition: transform .08s ease, filter .15s ease;
-  }
-  .big:active, .big.pressed { transform: scale(0.98); filter: brightness(1.1); }
-  .big-label { font-size: 30px; font-weight: 700; letter-spacing: -0.01em; position: relative; }
-  .big-sub { font-size: 15px; opacity: .75; position: relative; }
-  .interrupt { background: var(--interrupt); color: var(--interrupt-ink); }
-  .interrupt.playing { filter: brightness(1.15); }
-  .good { background: var(--surface-2); color: var(--text); border: 2px solid var(--line); }
+  .good { background: var(--card); color: var(--green); box-shadow: var(--shadow); }
+  .good .glyph { background: color-mix(in srgb, var(--green) 16%, transparent); }
+  .good .sub { color: var(--label-2); opacity: 1; }
   .good .fill {
-    position: absolute; inset: 0; background: var(--good); opacity: .22;
+    position: absolute; inset: 0; background: var(--green); opacity: .14;
     transform-origin: left; transform: scaleX(var(--p, 0));
   }
-  .good.ready { background: var(--good); color: var(--good-ink); border-color: var(--good); }
+  .good.ready { background: var(--green); color: #fff; box-shadow: 0 8px 24px -10px var(--green); }
+  .good.ready .glyph { background: rgba(255, 255, 255, 0.22); }
+  .good.ready .sub { color: #fff; opacity: .85; }
   .good.ready .fill { display: none; }
 
-  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .card {
-    background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px;
+  /* Grouped lists */
+  .section { margin-top: 30px; }
+  .section-h {
+    padding: 0 16px 7px; font-size: 13px; line-height: 18px; letter-spacing: -0.08px;
+    text-transform: uppercase; color: var(--label-2);
   }
-  .stepper { display: flex; align-items: center; gap: 10px; }
-  .stepper button {
-    width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line);
-    background: var(--surface-2); font-size: 22px; line-height: 1;
+  .group { background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+  .row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 11px 16px; }
+  .row.sep::before {
+    content: ''; position: absolute; top: 0; right: 0; left: 16px; height: 0.5px; background: var(--sep);
   }
-  .stepper b { min-width: 3.2em; text-align: center; font-variant-numeric: tabular-nums; }
-  .label { font-size: 14px; color: var(--muted); }
-  .stats { display: flex; gap: 10px; }
-  .stat { flex: 1; text-align: center; }
-  .stat b { display: block; font-size: 28px; font-variant-numeric: tabular-nums; }
-  .stat.i b { color: var(--interrupt); }
-  .stat.g b { color: var(--good); }
-  .stat.b b { color: var(--accent); }
+  .row.sep.indent::before { left: 57px; }
+  .row.stack { flex-direction: column; align-items: stretch; gap: 10px; }
+  .row .grow { flex: 1; min-width: 0; }
+  .row .detail { color: var(--label-2); }
+  .footer { padding: 7px 16px 0; font-size: 13px; line-height: 18px; letter-spacing: -0.08px; color: var(--label-2); }
+  .footer + .footer { padding-top: 6px; }
+  .icon-sq {
+    flex: none; width: 29px; height: 29px; border-radius: 7px; color: #fff;
+    display: grid; place-items: center;
+  }
+  .icon-sq svg { width: 18px; height: 18px; }
 
-  /* Bark detection */
+  /* Switch */
   .switch {
-    width: 52px; height: 32px; flex: none; border: 0; border-radius: 999px;
-    background: var(--line); position: relative; transition: background .2s;
+    flex: none; position: relative; width: 51px; height: 31px; border: 0; border-radius: 999px;
+    background: var(--fill-2); transition: background .25s;
   }
   .switch::after {
-    content: ''; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px;
-    border-radius: 50%; background: #fff; transition: transform .2s;
+    content: ''; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%;
+    background: #fff; box-shadow: 0 3px 8px rgba(0, 0, 0, .15), 0 3px 1px rgba(0, 0, 0, .06);
+    transition: transform .25s cubic-bezier(.3, 1.3, .5, 1);
   }
-  .switch[aria-checked="true"] { background: var(--good); }
+  .switch[aria-checked="true"] { background: var(--green); }
   .switch[aria-checked="true"]::after { transform: translateX(20px); }
   .switch:disabled { opacity: .5; }
-  .auto-body { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
-  .auto-body[hidden] { display: none; }
-  .meter { position: relative; height: 12px; border-radius: 6px; background: var(--surface-2); overflow: hidden; }
-  .meter .lvl { height: 100%; width: 0; background: var(--accent); }
-  .meter .lvl.hot { background: var(--interrupt); }
-  .meter .thr { position: absolute; top: 0; bottom: 0; width: 2px; left: 50%; background: var(--text); }
 
-  .week { display: flex; align-items: flex-end; gap: 8px; height: 70px; margin-top: 10px; }
-  .day { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
-  .bar { width: 100%; max-width: 26px; border-radius: 4px 4px 2px 2px; background: var(--good); min-height: 2px; opacity: .85; }
-  .day.today .bar { opacity: 1; }
-  .day span { font-size: 11px; color: var(--muted); }
-
-  /* Sound view */
-  .freq { text-align: center; font-size: 46px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
-  .freq small { font-size: 20px; color: var(--muted); font-weight: 500; }
-  input[type=range] { width: 100%; accent-color: var(--accent); height: 32px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  .chips button, .seg button {
-    border: 1px solid var(--line); background: var(--surface-2); border-radius: 12px;
-    padding: 9px 12px; font-size: 14px;
+  /* Segmented control */
+  .seg { display: flex; padding: 2px; border-radius: 9px; background: var(--fill); }
+  .seg button {
+    flex: 1; border: 0; border-radius: 7px; background: transparent; padding: 7px 4px;
+    font-size: 13px; font-weight: 500; letter-spacing: -0.08px;
+    transition: background .2s, box-shadow .2s;
   }
-  .chips button.on, .seg button.on { background: var(--accent); color: #062026; border-color: var(--accent); font-weight: 600; }
-  .seg { display: flex; gap: 6px; }
-  .seg button { flex: 1; }
-  .note { font-size: 13px; color: var(--muted); margin: 0; }
-  .hold { background: var(--accent); color: #062026; min-height: 110px; }
+  .seg button.on { background: var(--seg-on); font-weight: 600; box-shadow: 0 3px 8px rgba(0, 0, 0, .12), 0 3px 1px rgba(0, 0, 0, .04); }
+
+  /* Stepper */
+  .stepper { flex: none; display: flex; align-items: center; border-radius: 9px; background: var(--fill); }
+  .stepper button { width: 47px; height: 32px; border: 0; background: transparent; display: grid; place-items: center; }
+  .stepper button svg { width: 16px; height: 16px; }
+  .stepper i { width: 1px; height: 18px; background: var(--sep); }
+  .value { font-family: var(--rounded); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--label-2); }
+
+  /* Slider */
+  input[type=range] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 30px; margin: 0;
+    background: transparent; --p: 50%; --c: var(--tint);
+  }
+  input[type=range]:focus { outline: none; }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 4px; border-radius: 2px;
+    background: linear-gradient(to right, var(--c) var(--p), var(--fill-2) var(--p));
+  }
+  input[type=range]::-moz-range-track { height: 4px; border-radius: 2px; background: var(--fill-2); }
+  input[type=range]::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--c); }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 28px; height: 28px; margin-top: -12px; border-radius: 50%;
+    background: #fff; box-shadow: 0 0.5px 4px rgba(0, 0, 0, .12), 0 6px 13px rgba(0, 0, 0, .12);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 28px; height: 28px; border: 0; border-radius: 50%; background: #fff;
+    box-shadow: 0 0.5px 4px rgba(0, 0, 0, .12), 0 6px 13px rgba(0, 0, 0, .12);
+  }
+  .slider-row { display: flex; align-items: center; gap: 12px; color: var(--label-2); }
+  .slider-row svg { flex: none; width: 18px; height: 18px; }
+  .ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--label-2); letter-spacing: 0; }
+
+  /* Bark detection */
+  .live { display: flex; align-items: center; gap: 8px; font-size: 15px; letter-spacing: -0.24px; color: var(--label-2); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gray); flex: none; }
+  .dot.listening { background: var(--green); animation: breathe 1.6s ease-in-out infinite; }
+  .dot.cool { background: var(--orange); }
+  .dot.heard { background: var(--blue); transform: scale(1.4); }
+  @keyframes breathe { 50% { opacity: .35; } }
+  .meter { position: relative; height: 8px; border-radius: 4px; background: var(--fill); overflow: hidden; }
+  .meter .lvl { height: 100%; width: 0; border-radius: 4px; background: var(--blue); transition: width .06s linear; }
+  .meter .lvl.hot { background: var(--orange); }
+  .meter .thr { position: absolute; top: -2px; bottom: -2px; width: 2px; left: 50%; border-radius: 1px; background: var(--label); opacity: .7; }
+
+  /* Today */
+  .stats { display: flex; padding: 16px 8px 12px; }
+  .stat { flex: 1; text-align: center; }
+  .stat .k { font-size: 13px; font-weight: 600; letter-spacing: -0.08px; }
+  .stat b { display: block; font-family: var(--rounded); font-size: 34px; line-height: 40px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--label); }
+  .stat.b .k { color: var(--blue); }
+  .stat.i .k { color: var(--orange); }
+  .stat.g .k { color: var(--green); }
+  .chart-cap { font-size: 13px; color: var(--label-2); letter-spacing: -0.08px; }
+  .week { display: flex; align-items: flex-end; gap: 10px; height: 92px; }
+  .day { flex: 1; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; }
+  .day .n { font-size: 11px; font-family: var(--rounded); font-weight: 600; color: var(--label-2); min-height: 13px; }
+  .bar { width: 100%; max-width: 22px; border-radius: 5px; background: var(--green); min-height: 4px; opacity: .45; }
+  .bar.zero { background: var(--fill-2); opacity: 1; }
+  .day.today .bar { opacity: 1; }
+  .day span { font-size: 12px; color: var(--label-2); }
+  .day.today span { color: var(--label); font-weight: 600; }
+
+  /* Sound */
+  .freq { padding: 22px 16px 8px; text-align: center; }
+  .freq .num { font-family: var(--rounded); font-size: 64px; line-height: 70px; font-weight: 700; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+  .freq .unit { font-family: var(--rounded); font-size: 24px; font-weight: 600; color: var(--label-2); margin-left: 4px; }
+  .freq .what { font-size: 15px; color: var(--label-2); letter-spacing: -0.24px; margin-top: 2px; }
+  .preset { width: 100%; border: 0; background: transparent; text-align: left; }
+  .preset:active { background: var(--fill); }
+  .preset .check { width: 20px; height: 20px; color: var(--tint); visibility: hidden; flex: none; }
+  .preset.on .check { visibility: visible; }
+  .preset .sub { font-size: 13px; color: var(--label-2); letter-spacing: -0.08px; margin-top: 1px; }
+  .tinted {
+    width: 100%; border: 0; border-radius: 14px; min-height: 54px; margin-top: 30px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: color-mix(in srgb, var(--tint) 16%, transparent); color: var(--tint);
+    font-size: 17px; font-weight: 600;
+    transition: transform .25s cubic-bezier(.3, 1.4, .5, 1), background .15s, color .15s;
+  }
+  .tinted svg { width: 20px; height: 20px; }
+  .tinted.pressed { background: var(--tint); color: #fff; transform: scale(0.98); }
 
   /* Guide */
-  .guide h2 { font-size: 18px; margin: 6px 0 2px; }
-  .guide ol, .guide ul { margin: 0; padding-left: 1.2em; }
-  .guide li { margin: 8px 0; }
-  .guide p { margin: 6px 0; }
-  .guide .card { -webkit-user-select: text; user-select: text; }
-  .warn { border-color: #5a4423; }
+  .tip { background: var(--card); border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: var(--shadow); -webkit-user-select: text; user-select: text; }
+  .tip-h { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .tip-h h2 { margin: 0; font-size: 17px; line-height: 22px; font-weight: 600; flex: 1; }
+  .tag { font-size: 12px; font-weight: 600; color: var(--label-2); background: var(--fill); border-radius: 6px; padding: 3px 7px; letter-spacing: 0; }
+  .tip p, .tip li { font-size: 15px; line-height: 21px; letter-spacing: -0.24px; color: var(--label); }
+  .tip p { margin: 0 0 6px; }
+  .tip ol { list-style: none; counter-reset: s; margin: 8px 0 0; padding: 0; }
+  .tip ol li { counter-increment: s; position: relative; padding-left: 34px; margin: 10px 0; }
+  .tip ol li::before {
+    content: counter(s); position: absolute; left: 0; top: -1px; width: 23px; height: 23px; border-radius: 50%;
+    display: grid; place-items: center; background: var(--fill); color: var(--label-2);
+    font: 600 13px/1 var(--rounded);
+  }
+  .tip ul { margin: 6px 0 0; padding-left: 18px; }
+  .tip ul li { margin: 6px 0; }
+  .tip ul li::marker { color: var(--label-3); }
 
+  /* Tab bar */
   nav {
-    display: flex; border-top: 1px solid var(--line); background: var(--surface);
-    padding-bottom: env(safe-area-inset-bottom);
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+    display: flex; justify-content: center;
+    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    background: var(--bar);
+    -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+    box-shadow: 0 -0.5px 0 var(--sep);
   }
   nav button {
-    flex: 1; border: 0; background: none; padding: 10px 0 8px; font-size: 12px; color: var(--muted);
-    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    flex: 1; max-width: 180px; height: 49px; border: 0; background: none; padding-top: 6px;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    font-size: 10px; font-weight: 500; letter-spacing: 0.1px; color: var(--gray);
   }
-  nav button svg { width: 24px; height: 24px; }
-  nav button.on { color: var(--accent); }
+  nav button svg { width: 25px; height: 25px; }
+  nav button.on { color: var(--tint); }
 </style>
 </head>
 <body>
-<header>
-  <h1>Hush</h1>
-  <button class="chip" id="toneChip" aria-label="Sound settings">10 kHz · Pulse</button>
-</header>
-
 <main>
   <!-- TRAIN -->
   <section class="view on" id="v-train">
-    <p class="hint" id="hint">Barking? Tap <b>Interrupt</b> once. When the dogs go quiet, tap <b>Good quiet</b> and give a treat.</p>
+    <div class="title">
+      <h1>Train</h1>
+      <button class="pill" id="toneChip" aria-label="Sound settings">
+        <span id="toneText">10 kHz · Pulse</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+    </div>
+    <p class="lede" id="hint">Barking? Tap <b>Interrupt</b> once. When the dogs go quiet, tap <b>Good Quiet</b> and give a treat.</p>
 
-    <button class="big interrupt" id="btnInterrupt">
-      <span class="big-label">Interrupt</span>
-      <span class="big-sub" id="intSub">10 kHz · pulse</span>
+    <button class="hero interrupt" id="btnInterrupt">
+      <span class="glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9.2v5.6c0 .4.3.7.7.7h3.1l4.6 3.9c.5.4 1.1 0 1.1-.6V5.2c0-.6-.6-1-1.1-.6L6.8 8.5H3.7c-.4 0-.7.3-.7.7z" fill="currentColor"/><path d="M15.6 8.6a4.8 4.8 0 0 1 0 6.8M18.4 5.8a8.8 8.8 0 0 1 0 12.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+      <span class="text">
+        <span class="label">Interrupt</span>
+        <span class="sub" id="intSub">10 kHz · pulse · 1 s</span>
+      </span>
     </button>
 
-    <button class="big good" id="btnGood">
+    <button class="hero good" id="btnGood">
       <span class="fill"></span>
-      <span class="big-label" id="goodLabel">Good quiet</span>
-      <span class="big-sub" id="goodSub">click, then treat</span>
+      <span class="glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3s-7.4-4.4-9.3-8.9C1.3 8 3.3 4.6 6.7 4.6c2 0 3.5 1.1 4.3 2.4.4.6 1.6.6 2 0 .8-1.3 2.3-2.4 4.3-2.4 3.4 0 5.4 3.4 4 6.8-1.9 4.5-9.3 8.9-9.3 8.9z" fill="currentColor"/></svg></span>
+      <span class="text">
+        <span class="label" id="goodLabel">Good Quiet</span>
+        <span class="sub" id="goodSub">Click, then treat</span>
+      </span>
     </button>
 
-    <div class="card">
-      <div class="row">
-        <div>
-          <div>Bark detection</div>
-          <div class="label" id="autoStatus">Listens with the mic and interrupts for you</div>
+    <div class="section">
+      <div class="section-h">Bark Detection</div>
+      <div class="group">
+        <div class="row">
+          <span class="icon-sq" style="background:var(--blue)"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+          <span class="grow">Listen for Barks</span>
+          <button class="switch" id="autoToggle" role="switch" aria-checked="false" aria-label="Listen for barks"></button>
         </div>
-        <button class="switch" id="autoToggle" role="switch" aria-checked="false" aria-label="Bark detection"></button>
-      </div>
-      <div class="auto-body" id="autoBody" hidden>
-        <div class="meter" aria-hidden="true"><div class="lvl" id="lvl"></div><div class="thr" id="thr"></div></div>
-        <div class="label">Bar turns orange when a sound passes the white line.</div>
-        <div>
-          <div class="label">Sensitivity</div>
-          <input type="range" id="sens" min="0" max="100" step="5" aria-label="Sensitivity">
-        </div>
-        <div>
-          <div class="label">Interrupt after</div>
-          <div class="seg" id="barksN">
-            <button data-v="1">1 bark</button>
-            <button data-v="2">2 barks</button>
-            <button data-v="3">3 barks</button>
+        <div id="autoBody" hidden>
+          <div class="row sep indent stack">
+            <div class="live"><span class="dot" id="autoDot"></span><span id="autoStatus">Off</span></div>
+            <div class="meter" aria-hidden="true"><div class="lvl" id="lvl"></div><div class="thr" id="thr"></div></div>
+          </div>
+          <div class="row sep indent stack">
+            <div class="row" style="padding:0;min-height:0"><span class="grow">Sensitivity</span></div>
+            <div class="slider-row">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5v5c0 .3.2.5.5.5H8l4 3.4c.4.3.9 0 .9-.5V6.1c0-.5-.5-.8-.9-.5L8 9H5.5c-.3 0-.5.2-.5.5z" fill="currentColor"/></svg>
+              <input type="range" id="sens" min="0" max="100" step="5" aria-label="Sensitivity" style="--c:var(--blue)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9.5v5c0 .3.2.5.5.5H6l4 3.4c.4.3.9 0 .9-.5V6.1c0-.5-.5-.8-.9-.5L6 9H3.5c-.3 0-.5.2-.5.5z" fill="currentColor"/><path d="M14 9a4 4 0 0 1 0 6M16.8 6.3a8 8 0 0 1 0 11.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </div>
+          </div>
+          <div class="row sep indent stack">
+            <span>Interrupt After</span>
+            <div class="seg" id="barksN">
+              <button data-v="1">1 Bark</button>
+              <button data-v="2">2 Barks</button>
+              <button data-v="3">3 Barks</button>
+            </div>
           </div>
         </div>
-        <p class="note">Keep Hush open with the screen on. After each interrupt it waits 15 s before interrupting again.</p>
       </div>
+      <div class="footer" id="autoFooter">Hush listens with the mic and interrupts for you. Keep it open with the screen on. After an interrupt, it waits 15 seconds before interrupting again.</div>
     </div>
 
-    <div class="card row">
-      <div>
-        <div>Quiet goal</div>
-        <div class="label">Wait this long before you click</div>
+    <div class="section">
+      <div class="section-h">Quiet Goal</div>
+      <div class="group">
+        <div class="row">
+          <span class="icon-sq" style="background:var(--indigo)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 9v4.5l2.5 1.5M9.5 2.5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+          <span class="grow">Wait Before Click</span>
+          <span class="value" id="goalVal">3 s</span>
+          <div class="stepper">
+            <button id="goalDown" aria-label="Shorter"><svg viewBox="0 0 24 24"><path d="M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+            <i></i>
+            <button id="goalUp" aria-label="Longer"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+          </div>
+        </div>
       </div>
-      <div class="stepper">
-        <button id="goalDown" aria-label="Shorter">−</button>
-        <b id="goalVal">3 s</b>
-        <button id="goalUp" aria-label="Longer">+</button>
-      </div>
+      <div class="footer">Start with a few seconds. Make it longer as the dogs get better at staying quiet.</div>
     </div>
 
-    <div class="card">
-      <div class="stats">
-        <div class="stat b"><b id="sBark">0</b><span class="label">barks heard</span></div>
-        <div class="stat i"><b id="sInt">0</b><span class="label">interrupts</span></div>
-        <div class="stat g"><b id="sGood">0</b><span class="label">quiet rewards</span></div>
+    <div class="section">
+      <div class="section-h">Today</div>
+      <div class="group">
+        <div class="stats">
+          <div class="stat b"><div class="k">Barks</div><b id="sBark">0</b></div>
+          <div class="stat i"><div class="k">Interrupts</div><b id="sInt">0</b></div>
+          <div class="stat g"><div class="k">Rewards</div><b id="sGood">0</b></div>
+        </div>
+        <div class="row sep stack" style="padding-bottom:14px">
+          <span class="chart-cap">Quiet rewards, last 7 days</span>
+          <div class="week" id="week" aria-label="Quiet rewards, last 7 days"></div>
+        </div>
       </div>
-      <div class="week" id="week" aria-label="Quiet rewards, last 7 days"></div>
     </div>
   </section>
 
   <!-- SOUND -->
   <section class="view" id="v-sound">
-    <div class="freq" id="freqVal">10.0 <small>kHz</small></div>
-    <input type="range" id="freq" min="0" max="1000" step="1" aria-label="Frequency">
-    <div class="chips" id="presets">
-      <button data-f="6000">6 kHz · Field whistle</button>
-      <button data-f="10000">10 kHz · Sharp</button>
-      <button data-f="15000">15 kHz · High</button>
-      <button data-f="18500">18.5 kHz · Near-silent</button>
+    <div class="title"><h1>Sound</h1></div>
+    <p class="lede">Choose the tone for Interrupt. Pick one your dogs notice. It doesn't need to be silent.</p>
+
+    <div class="group">
+      <div class="freq">
+        <div><span class="num" id="freqNum">10.0</span><span class="unit">kHz</span></div>
+        <div class="what" id="freqWhat">Sharp and easy to notice</div>
+      </div>
+      <div class="row stack" style="padding-top:0">
+        <input type="range" id="freq" min="0" max="1000" step="1" aria-label="Frequency">
+        <div class="ends"><span>Lower</span><span>Higher</span></div>
+      </div>
     </div>
 
-    <div>
-      <div class="label">Pattern</div>
+    <div class="section">
+      <div class="section-h">Presets</div>
+      <div class="group" id="presets">
+        <button class="row preset" data-f="6000">
+          <span class="grow"><div>Field Whistle</div><div class="sub">Like a classic training whistle</div></span>
+          <span class="detail">6 kHz</span>
+          <svg class="check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="row preset sep" data-f="10000">
+          <span class="grow"><div>Sharp</div><div class="sub">Cuts through barking</div></span>
+          <span class="detail">10 kHz</span>
+          <svg class="check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="row preset sep" data-f="15000">
+          <span class="grow"><div>High</div><div class="sub">Quieter to most adults</div></span>
+          <span class="detail">15 kHz</span>
+          <svg class="check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="row preset sep" data-f="18500">
+          <span class="grow"><div>Near-Silent</div><div class="sub">Most adults can't hear it</div></span>
+          <span class="detail">18.5 kHz</span>
+          <svg class="check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <div class="footer">Most adults can't hear above about 15–17 kHz, but kids often can. iPhone speakers get weaker above about 18 kHz. No phone can play a true "silent" whistle, because those go above 23 kHz.</div>
+    </div>
+
+    <div class="section">
+      <div class="section-h">Pattern</div>
       <div class="seg" id="pattern">
         <button data-v="steady">Steady</button>
         <button data-v="pulse">Pulse</button>
@@ -248,8 +444,8 @@
       </div>
     </div>
 
-    <div>
-      <div class="label">Interrupt length</div>
+    <div class="section">
+      <div class="section-h">Interrupt Length</div>
       <div class="seg" id="len">
         <button data-v="0.5">0.5 s</button>
         <button data-v="1">1 s</button>
@@ -257,96 +453,118 @@
       </div>
     </div>
 
-    <div>
-      <div class="label">Volume</div>
-      <input type="range" id="vol" min="0.05" max="1" step="0.05" aria-label="Volume">
+    <div class="section">
+      <div class="section-h">Volume</div>
+      <div class="group">
+        <div class="row">
+          <div class="slider-row grow">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5v5c0 .3.2.5.5.5H8l4 3.4c.4.3.9 0 .9-.5V6.1c0-.5-.5-.8-.9-.5L8 9H5.5c-.3 0-.5.2-.5.5z" fill="currentColor"/></svg>
+            <input type="range" id="vol" min="0.05" max="1" step="0.05" aria-label="Volume">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9.5v5c0 .3.2.5.5.5H6l4 3.4c.4.3.9 0 .9-.5V6.1c0-.5-.5-.8-.9-.5L6 9H3.5c-.3 0-.5.2-.5.5z" fill="currentColor"/><path d="M14 9a4 4 0 0 1 0 6M16.8 6.3a8 8 0 0 1 0 11.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
+        </div>
+      </div>
+      <div class="footer">No sound? Turn up the volume with the side buttons and check the ring/silent switch.</div>
     </div>
 
-    <button class="big hold" id="btnHold">
-      <span class="big-label">Hold to test</span>
-      <span class="big-sub">this is the Interrupt sound</span>
+    <button class="tinted" id="btnHold">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13c0 .8.9 1.3 1.6.8l10-6.5c.6-.4.6-1.2 0-1.6l-10-6.5C8.9 4.2 8 4.7 8 5.5z" fill="currentColor"/></svg>
+      Hold to Test
     </button>
-
-    <p class="note">Most adults can't hear above about 15–17 kHz, but kids often can. iPhone speakers get weak above about 18 kHz, and no phone can make a true "silent" whistle (those go above 23 kHz). Pick a tone your dogs react to. It doesn't need to be silent.</p>
-    <p class="note">No sound? Turn up the volume and check that the ring/silent switch isn't on silent.</p>
   </section>
 
   <!-- GUIDE -->
-  <section class="view guide" id="v-guide">
-    <div class="card">
-      <h2>How it works</h2>
-      <p>The sound doesn't punish barking. It <b>interrupts</b> it, and that gives you a moment of quiet to <b>reward</b>. Rewarding quiet is what changes the habit. Reward-based training is linked to less stress and faster learning than harsh methods.</p>
-    </div>
+  <section class="view" id="v-guide">
+    <div class="title"><h1>Guide</h1></div>
+    <p class="lede">The sound doesn't punish barking. It interrupts it, so you get a moment of quiet to reward. Rewards are what change the habit.</p>
 
-    <div class="card">
-      <h2>1 · Charge the sound (first 3 days)</h2>
-      <p>Before you use it on barking, teach the dogs that the sound means good things.</p>
+    <article class="tip">
+      <div class="tip-h">
+        <span class="icon-sq" style="background:var(--orange)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" fill="currentColor"/></svg></span>
+        <h2>Charge the Sound</h2><span class="tag">Days 1–3</span>
+      </div>
+      <p>Before you use the sound on barking, teach the dogs that it means good things.</p>
       <ol>
         <li>With calm dogs, tap <b>Interrupt</b>, then give a treat right away.</li>
         <li>Do 10 of these, 2–3 times a day.</li>
-        <li>It's working when the dogs look at you or run to you at the sound.</li>
+        <li>It's working when they look at you or run over at the sound.</li>
       </ol>
-    </div>
+    </article>
 
-    <div class="card">
-      <h2>2 · When they bark</h2>
+    <article class="tip">
+      <div class="tip-h">
+        <span class="icon-sq" style="background:var(--green)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3s-7.4-4.4-9.3-8.9C1.3 8 3.3 4.6 6.7 4.6c2 0 3.5 1.1 4.3 2.4.4.6 1.6.6 2 0 .8-1.3 2.3-2.4 4.3-2.4 3.4 0 5.4 3.4 4 6.8-1.9 4.5-9.3 8.9-9.3 8.9z" fill="currentColor"/></svg></span>
+        <h2>When They Bark</h2>
+      </div>
       <ol>
-        <li>Tap <b>Interrupt</b> <b>once</b>. Repeating it over and over turns it into background noise.</li>
-        <li>Wait for quiet. The Good button fills up as you reach your quiet goal.</li>
-        <li>Tap <b>Good quiet</b> (it clicks) and give a treat within a second or two.</li>
+        <li>Tap <b>Interrupt</b> once. Repeating it turns it into background noise.</li>
+        <li>Wait for quiet. Good Quiet fills up as you reach your goal.</li>
+        <li>Tap <b>Good Quiet</b> (it clicks) and treat within a second or two.</li>
         <li>Start with a 1–3 second goal. Make it longer as they improve.</li>
       </ol>
-    </div>
+    </article>
 
-    <div class="card">
-      <h2>3 · Add the word</h2>
-      <p>Once they go quiet reliably, say <b>"Quiet"</b> just before you tap Good. Over time the word alone will work.</p>
-    </div>
+    <article class="tip">
+      <div class="tip-h">
+        <span class="icon-sq" style="background:var(--indigo)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5C4 5.1 5.1 4 6.5 4h11C18.9 4 20 5.1 20 6.5v7c0 1.4-1.1 2.5-2.5 2.5H10l-4.4 3.5c-.4.3-1 0-1-.5V16c-.3-.2-.6-.6-.6-1z" fill="currentColor"/></svg></span>
+        <h2>Add the Word</h2>
+      </div>
+      <p>Once they go quiet reliably, say <b>"Quiet"</b> just before you tap Good Quiet. Over time the word alone will work.</p>
+    </article>
 
-    <div class="card">
-      <h2>Bark detection</h2>
+    <article class="tip">
+      <div class="tip-h">
+        <span class="icon-sq" style="background:var(--blue)"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+        <h2>Bark Detection</h2>
+      </div>
       <ul>
-        <li>Turn it on in the Train tab. Hush listens with the mic and plays Interrupt when it hears barking (after 1–3 barks, your choice). Then it waits 15 s before it will interrupt again.</li>
-        <li>It also listens for quiet. When the dogs have been quiet for your goal, <b>Click now</b> lights up. Tap it and give a treat.</li>
-        <li>You still need to be there. The reward is what teaches them. Interrupts with nobody around to reward turn into noise the dogs learn to ignore.</li>
-        <li>Keep Hush open with the screen on. iPhone turns off the mic when the app is in the background or the phone locks.</li>
-        <li>Voices, the TV or a door slam can set it off. If it does, lower Sensitivity.</li>
+        <li>Turn on <b>Listen for Barks</b> in Train. Hush plays Interrupt after 1–3 barks (you choose). Then it waits 15 seconds before interrupting again.</li>
+        <li>It listens for quiet too. When the dogs have been quiet long enough, <b>Click Now</b> lights up. Tap it and give a treat.</li>
+        <li>You still need to be there. The reward is what teaches them. Without one, the interrupt is just noise they learn to ignore.</li>
+        <li>Keep Hush open with the screen on. iPhone turns off the mic in the background or when the phone locks.</li>
+        <li>Voices, the TV or a door slam can set it off. If that happens, lower Sensitivity.</li>
       </ul>
-    </div>
+    </article>
 
-    <div class="card">
-      <h2>Make it easier</h2>
+    <article class="tip">
+      <div class="tip-h">
+        <span class="icon-sq" style="background:var(--teal)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8a6.7 6.7 0 0 0-4 12.1c.6.4 1 1.1 1 1.9v.7h6v-.7c0-.8.4-1.5 1-1.9a6.7 6.7 0 0 0-4-12.1zM9.5 19.5h5M10.5 21.5h3" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+        <h2>Make It Easier</h2>
+      </div>
       <ul>
-        <li>Find the trigger: window, doorbell, passing dogs, boredom.</li>
-        <li>Block window views and use white noise for outside sounds.</li>
-        <li>More exercise and chew toys reduce barking from boredom.</li>
+        <li>Find the trigger: the window, the doorbell, passing dogs or boredom.</li>
+        <li>Block window views, and use white noise to cover outside sounds.</li>
+        <li>More exercise and chew toys cut down barking from boredom.</li>
         <li>Don't yell. To a dog, it sounds like you're barking along.</li>
       </ul>
-    </div>
+    </article>
 
-    <div class="card warn">
-      <h2>Be kind to their ears</h2>
+    <article class="tip">
+      <div class="tip-h">
+        <span class="icon-sq" style="background:var(--red)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l7.5 2.9v5.6c0 4.7-3.2 8.4-7.5 9.9-4.3-1.5-7.5-5.2-7.5-9.9V5.7z" fill="currentColor"/></svg></span>
+        <h2>Be Kind to Their Ears</h2>
+      </div>
       <ul>
         <li>Never hold the phone near a dog's head.</li>
-        <li>Don't use the sound as punishment, and don't play it constantly.</li>
-        <li>If a dog seems scared (cowering, hiding), stop and use a lower, softer tone.</li>
-        <li>Sounds don't help barking from anxiety, such as when you leave. Talk to your vet or a behaviorist about that.</li>
+        <li>Don't use the sound as punishment, and don't play it nonstop.</li>
+        <li>If a dog seems scared (cowering, hiding), stop and switch to a lower, softer tone.</li>
+        <li>Sound won't fix barking from anxiety, such as when you leave. Talk to your vet or a behaviorist about that.</li>
       </ul>
-    </div>
+    </article>
   </section>
 </main>
 
 <nav>
   <button class="on" data-view="train">
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><ellipse cx="12" cy="16" rx="5" ry="4"/><circle cx="6" cy="10" r="2"/><circle cx="10" cy="6.5" r="2"/><circle cx="14" cy="6.5" r="2"/><circle cx="18" cy="10" r="2"/></svg>
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 12.2c-2.9 0-6.3 3.4-6.3 6 0 1.6 1.2 2.4 2.7 2.4 1.4 0 2.4-.7 3.6-.7s2.2.7 3.6.7c1.5 0 2.7-.8 2.7-2.4 0-2.6-3.4-6-6.3-6z"/><ellipse cx="5" cy="10.2" rx="2.1" ry="2.6" transform="rotate(-18 5 10.2)"/><ellipse cx="9.2" cy="5.8" rx="2.2" ry="2.8" transform="rotate(-6 9.2 5.8)"/><ellipse cx="14.8" cy="5.8" rx="2.2" ry="2.8" transform="rotate(6 14.8 5.8)"/><ellipse cx="19" cy="10.2" rx="2.1" ry="2.6" transform="rotate(18 19 10.2)"/></svg>
     Train
   </button>
   <button data-view="sound">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 10v4M7 7v10M11 4v16M15 8v8M19 11v2"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3.5 10.5v3M7.5 7v10M11.5 4v16M15.5 8v8M19.5 10.5v3"/></svg>
     Sound
   </button>
   <button data-view="guide">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 8h6"/></svg>
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.6c0-.6.4-1.1 1-1.2 2.6-.5 5.2-.1 7 1.3v14c-1.8-1.3-4.4-1.7-7-1.2-.5.1-1-.3-1-.9z"/><path d="M21 5.6c0-.6-.4-1.1-1-1.2-2.6-.5-5.2-.1-7 1.3v14c1.8-1.3 4.4-1.7 7-1.2.5.1 1-.3 1-.9z"/></svg>
     Guide
   </button>
 </nav>
@@ -362,6 +580,9 @@
   };
   const settings = Object.assign({ freq: 10000, pattern: 'pulse', len: 1, vol: 0.8, goal: 3, sens: 60, barksN: 2 }, store.get('settings', {}));
   const save = () => store.set('settings', settings);
+
+  // Paint the filled part of an iOS-style slider.
+  const paintRange = (el) => el.style.setProperty('--p', ((el.value - el.min) / (el.max - el.min)) * 100 + '%');
 
   // ---------- audio ----------
   let ctx = null, master = null, clickBuf = null;
@@ -472,7 +693,7 @@
     const vals = days.map((d) => (log[dayKey(d)] || {}).g || 0);
     const max = Math.max(1, ...vals);
     $('week').innerHTML = days.map((d, i) =>
-      `<div class="day${i === 6 ? ' today' : ''}"><div class="bar" style="height:${Math.round((vals[i] / max) * 48)}px" title="${vals[i]}"></div><span>${d.toLocaleDateString(undefined, { weekday: 'narrow' })}</span></div>`
+      `<div class="day${i === 6 ? ' today' : ''}"><span class="n">${vals[i] || ''}</span><div class="bar${vals[i] ? '' : ' zero'}" style="height:${Math.max(4, Math.round((vals[i] / max) * 56))}px"></div><span>${d.toLocaleDateString(undefined, { weekday: 'narrow' })}</span></div>`
     ).join('');
   }
 
@@ -500,12 +721,13 @@
   }
   btnInt.addEventListener('click', interrupt);
 
-  function startWait(t0 = performance.now() + settings.len * 1000, msg = 'Wait for quiet…') {
+  function setGood(label, sub) { $('goodLabel').textContent = label; $('goodSub').textContent = sub; }
+
+  function startWait(t0 = performance.now() + settings.len * 1000, msg = 'Waiting for quiet…') {
     cancelAnimationFrame(waitRaf);
     waiting = true;
     btnGood.classList.remove('ready');
-    $('goodLabel').textContent = 'Good quiet';
-    $('goodSub').textContent = 'click, then treat';
+    setGood('Good Quiet', 'Click, then treat');
     $('hint').innerHTML = msg;
     const total = settings.goal * 1000;
     const step = (now) => {
@@ -513,11 +735,10 @@
       btnGood.style.setProperty('--p', p);
       if (p < 1) { waitRaf = requestAnimationFrame(step); return; }
       btnGood.classList.add('ready');
-      $('goodLabel').textContent = 'Click now';
-      $('goodSub').textContent = 'if they’re still quiet';
+      setGood('Click Now', 'If they’re still quiet');
       $('hint').innerHTML = auto.on
-        ? `Quiet for ${settings.goal} s! Tap <b>Click now</b>, then treat.`
-        : 'Quiet? Tap <b>Click now</b>, then treat. Barked again? Wait, then try again.';
+        ? `Quiet for ${settings.goal} seconds! Tap <b>Click Now</b>, then treat.`
+        : 'Quiet? Tap <b>Click Now</b>, then treat. Barked again? Wait, then try again.';
     };
     waitRaf = requestAnimationFrame(step);
   }
@@ -526,20 +747,19 @@
     waiting = false;
     btnGood.classList.remove('ready');
     btnGood.style.setProperty('--p', 0);
-    $('goodLabel').textContent = 'Good quiet';
-    $('goodSub').textContent = 'click, then treat';
+    setGood('Good Quiet', 'Click, then treat');
   }
   btnGood.addEventListener('click', () => {
     playClick();
     auto.suppressUntil = performance.now() + 400;
     bump('g');
     resetGood();
-    $('hint').innerHTML = 'Nice! Treat now. 🐾';
+    $('hint').innerHTML = 'Good dogs! Treat now. 🐾';
     setTimeout(() => { if (!waiting) $('hint').innerHTML = DEFAULT_HINT; }, 2500);
   });
 
   const renderGoal = () => { $('goalVal').textContent = settings.goal + ' s'; };
-  $('goalDown').addEventListener('click', () => { settings.goal = Math.max(1, settings.goal - 1); save(); renderGoal(); });
+  $('goalDown').addEventListener('click', () => { settings.goal = Math.max(1, settings.goal - (settings.goal > 10 ? 5 : 1)); save(); renderGoal(); });
   $('goalUp').addEventListener('click', () => { settings.goal = Math.min(60, settings.goal + (settings.goal >= 10 ? 5 : 1)); save(); renderGoal(); });
 
   // ---------- bark detection ----------
@@ -549,9 +769,13 @@
   const WINDOW_MS = 4000, COOLDOWN_MS = 15000, ABS_MIN_DB = -65, FRAME_MS = 30;
   const margin = () => 30 - settings.sens * 0.24; // sensitivity 0–100 → 30–6 dB above background
   const toggle = $('autoToggle');
-  let td = null, fd = null, flashUntil = 0, flashText = '';
+  let td = null, fd = null, heardUntil = 0;
 
-  const setStatus = (t) => { if ($('autoStatus').textContent !== t) $('autoStatus').textContent = t; };
+  const setStatus = (t, dot = '') => {
+    if ($('autoStatus').textContent !== t) $('autoStatus').textContent = t;
+    const cls = 'dot' + (dot ? ' ' + dot : '');
+    if ($('autoDot').className !== cls) $('autoDot').className = cls;
+  };
   const pct = (db) => Math.max(0, Math.min(100, ((db + 80) / 70) * 100));
 
   function bandRatio() {
@@ -579,9 +803,9 @@
     $('lvl').style.width = pct(db) + '%';
     $('lvl').classList.toggle('hot', db > thr);
     $('thr').style.left = pct(thr) + '%';
-    setStatus(now < flashUntil ? flashText
-      : now < auto.coolUntil ? `Interrupted · listening again in ${Math.ceil((auto.coolUntil - now) / 1000)} s`
-      : 'Listening for barks…');
+    if (now < heardUntil) setStatus('Bark heard', 'heard');
+    else if (now < auto.coolUntil) setStatus(`Interrupted · listening again in ${Math.ceil((auto.coolUntil - now) / 1000)} s`, 'cool');
+    else setStatus('Listening', 'listening');
 
     if (now < auto.suppressUntil) { auto.inEvent = false; return; }
 
@@ -604,7 +828,7 @@
 
   function onBark(now) {
     bump('b');
-    flashText = 'Bark heard'; flashUntil = now + 800;
+    heardUntil = now + 800;
     // Barked during the quiet wait: start the wait over.
     if (waiting && !playing) startWait(now, 'Barked again. Waiting for quiet…');
     if (now < auto.coolUntil) return;
@@ -626,9 +850,12 @@
     } catch {}
   }
 
+  const footer = (t) => { $('autoFooter').textContent = t; };
+  const FOOTER = $('autoFooter').textContent;
+
   async function startAuto() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setStatus('This browser can’t use the mic.');
+      footer('This browser can’t use the mic.');
       return;
     }
     // Recording and playing at the same time needs this audio mode on iPhone.
@@ -642,7 +869,7 @@
       });
     } catch {
       try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
-      setStatus('Mic blocked. Allow microphone access for this site, then try again.');
+      footer('Hush can’t use the mic. Allow microphone access for this site, then try again.');
       return;
     }
     if (c.state !== 'running') c.resume();
@@ -661,8 +888,10 @@
     stream.getAudioTracks()[0].addEventListener('ended', () => {
       if (!auto.on) return;
       stopAuto();
-      setStatus('Mic turned off. Turn bark detection on again.');
+      footer('The mic turned off. Turn on Listen for Barks again to keep going.');
     });
+    footer(FOOTER);
+    setStatus('Listening', 'listening');
     auto.timer = setInterval(frame, FRAME_MS);
     keepAwake();
     renderAuto();
@@ -675,14 +904,15 @@
     if (auto.wake) { auto.wake.release().catch(() => {}); auto.wake = null; }
     try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
     Object.assign(auto, { on: false, stream: null, src: null, an: null, sink: null, timer: 0 });
+    footer(FOOTER);
     renderAuto();
-    setStatus('Listens with the mic and interrupts for you');
   }
 
   function renderAuto() {
     toggle.setAttribute('aria-checked', String(auto.on));
     $('autoBody').hidden = !auto.on;
     $('sens').value = settings.sens;
+    paintRange($('sens'));
     document.querySelectorAll('#barksN button').forEach((b) => b.classList.toggle('on', +b.dataset.v === settings.barksN));
   }
 
@@ -692,32 +922,41 @@
     await startAuto();
     toggle.disabled = false;
   });
-  $('sens').addEventListener('input', (e) => { settings.sens = +e.target.value; save(); });
+  $('sens').addEventListener('input', (e) => { settings.sens = +e.target.value; paintRange(e.target); save(); });
   $('barksN').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; settings.barksN = +b.dataset.v; save(); renderAuto(); });
 
   // ---------- sound view ----------
   const fToSlider = (f) => Math.round((Math.log(f / MIN_F) / Math.log(maxF() / MIN_F)) * 1000);
   const sliderToF = (v) => Math.round(MIN_F * Math.pow(maxF() / MIN_F, v / 1000) / 50) * 50;
   const patternName = { steady: 'Steady', pulse: 'Pulse', warble: 'Warble' };
+  const describe = (f) =>
+    f < 4000 ? 'Low and easy for everyone to hear'
+    : f < 8000 ? 'Like a classic training whistle'
+    : f < 13000 ? 'Sharp and easy to notice'
+    : f < 17000 ? 'High, and quieter to most adults'
+    : 'Near-silent to most adults';
 
   function renderSound() {
     const f = Math.min(settings.freq, maxF());
-    $('freqVal').innerHTML = (f / 1000).toFixed(1) + ' <small>kHz</small>';
+    $('freqNum').textContent = (f / 1000).toFixed(1);
+    $('freqWhat').textContent = describe(f);
     $('freq').value = fToSlider(f);
-    document.querySelectorAll('#presets button').forEach((b) => b.classList.toggle('on', +b.dataset.f === settings.freq));
+    paintRange($('freq'));
+    document.querySelectorAll('#presets .preset').forEach((b) => b.classList.toggle('on', +b.dataset.f === settings.freq));
     document.querySelectorAll('#pattern button').forEach((b) => b.classList.toggle('on', b.dataset.v === settings.pattern));
     document.querySelectorAll('#len button').forEach((b) => b.classList.toggle('on', +b.dataset.v === settings.len));
     $('vol').value = settings.vol;
+    paintRange($('vol'));
     const label = (f / 1000).toFixed(f % 1000 ? 1 : 0) + ' kHz';
-    $('toneChip').textContent = label + ' · ' + patternName[settings.pattern];
+    $('toneText').textContent = label + ' · ' + patternName[settings.pattern];
     $('intSub').textContent = label + ' · ' + settings.pattern + ' · ' + settings.len + ' s';
   }
 
   $('freq').addEventListener('input', (e) => { settings.freq = sliderToF(+e.target.value); save(); renderSound(); });
-  $('presets').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; settings.freq = +b.dataset.f; save(); renderSound(); });
+  $('presets').addEventListener('click', (e) => { const b = e.target.closest('.preset'); if (!b) return; settings.freq = +b.dataset.f; save(); renderSound(); });
   $('pattern').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; settings.pattern = b.dataset.v; save(); renderSound(); });
   $('len').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; settings.len = +b.dataset.v; save(); renderSound(); });
-  $('vol').addEventListener('input', (e) => { settings.vol = +e.target.value; save(); if (master) master.gain.value = settings.vol; });
+  $('vol').addEventListener('input', (e) => { settings.vol = +e.target.value; paintRange(e.target); save(); if (master) master.gain.value = settings.vol; });
 
   // Hold-to-test, with a 10 second safety stop.
   const hold = $('btnHold');
@@ -738,6 +977,7 @@
     document.querySelectorAll('.view').forEach((v) => v.classList.toggle('on', v.id === 'v-' + view));
     document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('on', b.dataset.view === view));
     holdStop();
+    window.scrollTo(0, 0);
   }
   document.querySelector('nav').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) show(b.dataset.view); });
   $('toneChip').addEventListener('click', () => show('sound'));
