@@ -95,6 +95,26 @@
   .stat b { display: block; font-size: 28px; font-variant-numeric: tabular-nums; }
   .stat.i b { color: var(--interrupt); }
   .stat.g b { color: var(--good); }
+  .stat.b b { color: var(--accent); }
+
+  /* Bark detection */
+  .switch {
+    width: 52px; height: 32px; flex: none; border: 0; border-radius: 999px;
+    background: var(--line); position: relative; transition: background .2s;
+  }
+  .switch::after {
+    content: ''; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px;
+    border-radius: 50%; background: #fff; transition: transform .2s;
+  }
+  .switch[aria-checked="true"] { background: var(--good); }
+  .switch[aria-checked="true"]::after { transform: translateX(20px); }
+  .switch:disabled { opacity: .5; }
+  .auto-body { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+  .auto-body[hidden] { display: none; }
+  .meter { position: relative; height: 12px; border-radius: 6px; background: var(--surface-2); overflow: hidden; }
+  .meter .lvl { height: 100%; width: 0; background: var(--accent); }
+  .meter .lvl.hot { background: var(--interrupt); }
+  .meter .thr { position: absolute; top: 0; bottom: 0; width: 2px; left: 50%; background: var(--text); }
 
   .week { display: flex; align-items: flex-end; gap: 8px; height: 70px; margin-top: 10px; }
   .day { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
@@ -159,6 +179,33 @@
       <span class="big-sub" id="goodSub">click, then treat</span>
     </button>
 
+    <div class="card">
+      <div class="row">
+        <div>
+          <div>Bark detection</div>
+          <div class="label" id="autoStatus">Listens with the mic and interrupts for you</div>
+        </div>
+        <button class="switch" id="autoToggle" role="switch" aria-checked="false" aria-label="Bark detection"></button>
+      </div>
+      <div class="auto-body" id="autoBody" hidden>
+        <div class="meter" aria-hidden="true"><div class="lvl" id="lvl"></div><div class="thr" id="thr"></div></div>
+        <div class="label">Bar turns orange when a sound passes the white line.</div>
+        <div>
+          <div class="label">Sensitivity</div>
+          <input type="range" id="sens" min="0" max="100" step="5" aria-label="Sensitivity">
+        </div>
+        <div>
+          <div class="label">Interrupt after</div>
+          <div class="seg" id="barksN">
+            <button data-v="1">1 bark</button>
+            <button data-v="2">2 barks</button>
+            <button data-v="3">3 barks</button>
+          </div>
+        </div>
+        <p class="note">Keep Hush open with the screen on. After each interrupt it waits 15 s before interrupting again.</p>
+      </div>
+    </div>
+
     <div class="card row">
       <div>
         <div>Quiet goal</div>
@@ -173,8 +220,9 @@
 
     <div class="card">
       <div class="stats">
-        <div class="stat i"><b id="sInt">0</b><span class="label">interrupts today</span></div>
-        <div class="stat g"><b id="sGood">0</b><span class="label">quiet rewards today</span></div>
+        <div class="stat b"><b id="sBark">0</b><span class="label">barks heard</span></div>
+        <div class="stat i"><b id="sInt">0</b><span class="label">interrupts</span></div>
+        <div class="stat g"><b id="sGood">0</b><span class="label">quiet rewards</span></div>
       </div>
       <div class="week" id="week" aria-label="Quiet rewards, last 7 days"></div>
     </div>
@@ -256,6 +304,17 @@
     </div>
 
     <div class="card">
+      <h2>Bark detection</h2>
+      <ul>
+        <li>Turn it on in the Train tab. Hush listens with the mic and plays Interrupt when it hears barking (after 1–3 barks, your choice). Then it waits 15 s before it will interrupt again.</li>
+        <li>It also listens for quiet. When the dogs have been quiet for your goal, <b>Click now</b> lights up. Tap it and give a treat.</li>
+        <li>You still need to be there. The reward is what teaches them. Interrupts with nobody around to reward turn into noise the dogs learn to ignore.</li>
+        <li>Keep Hush open with the screen on. iPhone turns off the mic when the app is in the background or the phone locks.</li>
+        <li>Voices, the TV or a door slam can set it off. If it does, lower Sensitivity.</li>
+      </ul>
+    </div>
+
+    <div class="card">
       <h2>Make it easier</h2>
       <ul>
         <li>Find the trigger: window, doorbell, passing dogs, boredom.</li>
@@ -301,7 +360,7 @@
     get(k, d) { try { const v = localStorage.getItem('hush.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
     set(k, v) { try { localStorage.setItem('hush.' + k, JSON.stringify(v)); } catch {} },
   };
-  const settings = Object.assign({ freq: 10000, pattern: 'pulse', len: 1, vol: 0.8, goal: 3 }, store.get('settings', {}));
+  const settings = Object.assign({ freq: 10000, pattern: 'pulse', len: 1, vol: 0.8, goal: 3, sens: 60, barksN: 2 }, store.get('settings', {}));
   const save = () => store.set('settings', settings);
 
   // ---------- audio ----------
@@ -395,8 +454,8 @@
   const log = store.get('log', {});
   function bump(field) {
     const k = dayKey();
-    log[k] = log[k] || { i: 0, g: 0 };
-    log[k][field]++;
+    log[k] = log[k] || {};
+    log[k][field] = (log[k][field] || 0) + 1;
     // Keep about two months of history.
     const keys = Object.keys(log).sort();
     while (keys.length > 60) delete log[keys.shift()];
@@ -404,9 +463,10 @@
     renderStats();
   }
   function renderStats() {
-    const today = log[dayKey()] || { i: 0, g: 0 };
-    $('sInt').textContent = today.i;
-    $('sGood').textContent = today.g;
+    const today = log[dayKey()] || {};
+    $('sBark').textContent = today.b || 0;
+    $('sInt').textContent = today.i || 0;
+    $('sGood').textContent = today.g || 0;
     const days = [];
     for (let n = 6; n >= 0; n--) { const d = new Date(); d.setDate(d.getDate() - n); days.push(d); }
     const vals = days.map((d) => (log[dayKey(d)] || {}).g || 0);
@@ -421,23 +481,33 @@
   let playing = null, waitRaf = 0, waiting = false;
   const DEFAULT_HINT = $('hint').innerHTML;
 
-  btnInt.addEventListener('click', () => {
+  // Bark detector state (see "bark detection" below).
+  const auto = { on: false, stream: null, src: null, an: null, sink: null, timer: 0, wake: null,
+                 floor: null, inEvent: false, evStart: 0, evFrames: 0, evBand: 0,
+                 barks: [], coolUntil: 0, suppressUntil: 0 };
+
+  function interrupt() {
     if (playing) return; // one interrupt at a time
     const c = audio();
     playing = startTone();
     playing.stop(c.currentTime + settings.len);
+    // Don't let the mic hear our own tone as a bark.
+    auto.suppressUntil = performance.now() + settings.len * 1000 + 400;
     btnInt.classList.add('playing');
     setTimeout(() => { playing = null; btnInt.classList.remove('playing'); }, settings.len * 1000 + 60);
     bump('i');
     startWait();
-  });
+  }
+  btnInt.addEventListener('click', interrupt);
 
-  function startWait() {
+  function startWait(t0 = performance.now() + settings.len * 1000, msg = 'Wait for quiet…') {
     cancelAnimationFrame(waitRaf);
     waiting = true;
     btnGood.classList.remove('ready');
-    $('hint').innerHTML = 'Wait for quiet…';
-    const t0 = performance.now() + settings.len * 1000, total = settings.goal * 1000;
+    $('goodLabel').textContent = 'Good quiet';
+    $('goodSub').textContent = 'click, then treat';
+    $('hint').innerHTML = msg;
+    const total = settings.goal * 1000;
     const step = (now) => {
       const p = Math.max(0, Math.min(1, (now - t0) / total));
       btnGood.style.setProperty('--p', p);
@@ -445,7 +515,9 @@
       btnGood.classList.add('ready');
       $('goodLabel').textContent = 'Click now';
       $('goodSub').textContent = 'if they’re still quiet';
-      $('hint').innerHTML = 'Quiet? Tap <b>Click now</b>, then treat. Barked again? Wait, then try again.';
+      $('hint').innerHTML = auto.on
+        ? `Quiet for ${settings.goal} s! Tap <b>Click now</b>, then treat.`
+        : 'Quiet? Tap <b>Click now</b>, then treat. Barked again? Wait, then try again.';
     };
     waitRaf = requestAnimationFrame(step);
   }
@@ -459,6 +531,7 @@
   }
   btnGood.addEventListener('click', () => {
     playClick();
+    auto.suppressUntil = performance.now() + 400;
     bump('g');
     resetGood();
     $('hint').innerHTML = 'Nice! Treat now. 🐾';
@@ -468,6 +541,159 @@
   const renderGoal = () => { $('goalVal').textContent = settings.goal + ' s'; };
   $('goalDown').addEventListener('click', () => { settings.goal = Math.max(1, settings.goal - 1); save(); renderGoal(); });
   $('goalUp').addEventListener('click', () => { settings.goal = Math.min(60, settings.goal + (settings.goal >= 10 ? 5 : 1)); save(); renderGoal(); });
+
+  // ---------- bark detection ----------
+  // A bark is a short, loud sound (40 ms – 1.5 s) well above the room's background
+  // level, with most of its energy in the 250 Hz – 4 kHz range where barks live.
+  const BAND_LO = 250, BAND_HI = 4000, MIN_MS = 40, MAX_MS = 1500;
+  const WINDOW_MS = 4000, COOLDOWN_MS = 15000, ABS_MIN_DB = -65, FRAME_MS = 30;
+  const margin = () => 30 - settings.sens * 0.24; // sensitivity 0–100 → 30–6 dB above background
+  const toggle = $('autoToggle');
+  let td = null, fd = null, flashUntil = 0, flashText = '';
+
+  const setStatus = (t) => { if ($('autoStatus').textContent !== t) $('autoStatus').textContent = t; };
+  const pct = (db) => Math.max(0, Math.min(100, ((db + 80) / 70) * 100));
+
+  function bandRatio() {
+    auto.an.getFloatFrequencyData(fd);
+    const binHz = ctx.sampleRate / auto.an.fftSize;
+    let band = 0, total = 0;
+    for (let i = 1; i < fd.length; i++) {
+      const p = Math.pow(10, fd[i] / 10), f = i * binHz;
+      total += p;
+      if (f >= BAND_LO && f <= BAND_HI) band += p;
+    }
+    return total ? band / total : 0;
+  }
+
+  function frame() {
+    if (!auto.an) return;
+    auto.an.getFloatTimeDomainData(td);
+    let sum = 0;
+    for (let i = 0; i < td.length; i++) sum += td[i] * td[i];
+    const db = 10 * Math.log10(sum / td.length + 1e-12);
+    const now = performance.now();
+    if (auto.floor == null) auto.floor = Math.max(db, -90);
+    const thr = Math.max(auto.floor + margin(), ABS_MIN_DB);
+
+    $('lvl').style.width = pct(db) + '%';
+    $('lvl').classList.toggle('hot', db > thr);
+    $('thr').style.left = pct(thr) + '%';
+    setStatus(now < flashUntil ? flashText
+      : now < auto.coolUntil ? `Interrupted · listening again in ${Math.ceil((auto.coolUntil - now) / 1000)} s`
+      : 'Listening for barks…');
+
+    if (now < auto.suppressUntil) { auto.inEvent = false; return; }
+
+    if (db > thr) {
+      if (!auto.inEvent) { auto.inEvent = true; auto.evStart = now; auto.evFrames = 0; auto.evBand = 0; }
+      auto.evFrames++;
+      if (bandRatio() >= 0.5) auto.evBand++;
+      // A loud sound that won't stop (vacuum, TV) becomes the new background.
+      if (now - auto.evStart > MAX_MS) auto.floor += (db - auto.floor) * 0.02;
+    } else {
+      if (auto.inEvent) {
+        auto.inEvent = false;
+        const dur = now - auto.evStart;
+        if (dur >= MIN_MS && dur <= MAX_MS && auto.evBand / auto.evFrames >= 0.5) onBark(now);
+      }
+      // Background level follows the room slowly while it's quiet.
+      auto.floor += (Math.max(db, -90) - auto.floor) * 0.01;
+    }
+  }
+
+  function onBark(now) {
+    bump('b');
+    flashText = 'Bark heard'; flashUntil = now + 800;
+    // Barked during the quiet wait: start the wait over.
+    if (waiting && !playing) startWait(now, 'Barked again. Waiting for quiet…');
+    if (now < auto.coolUntil) return;
+    auto.barks = auto.barks.filter((t) => now - t < WINDOW_MS);
+    auto.barks.push(now);
+    if (auto.barks.length >= settings.barksN) {
+      auto.barks = [];
+      auto.coolUntil = now + COOLDOWN_MS;
+      interrupt();
+    }
+  }
+
+  async function keepAwake() {
+    try {
+      if ('wakeLock' in navigator && !auto.wake) {
+        auto.wake = await navigator.wakeLock.request('screen');
+        auto.wake.addEventListener('release', () => { auto.wake = null; });
+      }
+    } catch {}
+  }
+
+  async function startAuto() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setStatus('This browser can’t use the mic.');
+      return;
+    }
+    // Recording and playing at the same time needs this audio mode on iPhone.
+    try { if (navigator.audioSession) navigator.audioSession.type = 'play-and-record'; } catch {}
+    const c = audio();
+    let stream;
+    try {
+      // Raw mic: echo cancelling and auto volume would hide barks.
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      });
+    } catch {
+      try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
+      setStatus('Mic blocked. Allow microphone access for this site, then try again.');
+      return;
+    }
+    if (c.state !== 'running') c.resume();
+    auto.stream = stream;
+    auto.src = c.createMediaStreamSource(stream);
+    auto.an = c.createAnalyser();
+    auto.an.fftSize = 2048;
+    auto.an.smoothingTimeConstant = 0;
+    // Safari only runs an analyser that's connected to the output, so connect it silently.
+    auto.sink = c.createGain();
+    auto.sink.gain.value = 0;
+    auto.src.connect(auto.an); auto.an.connect(auto.sink); auto.sink.connect(c.destination);
+    td = new Float32Array(auto.an.fftSize);
+    fd = new Float32Array(auto.an.frequencyBinCount);
+    Object.assign(auto, { on: true, floor: null, inEvent: false, barks: [], coolUntil: 0 });
+    stream.getAudioTracks()[0].addEventListener('ended', () => {
+      if (!auto.on) return;
+      stopAuto();
+      setStatus('Mic turned off. Turn bark detection on again.');
+    });
+    auto.timer = setInterval(frame, FRAME_MS);
+    keepAwake();
+    renderAuto();
+  }
+
+  function stopAuto() {
+    clearInterval(auto.timer);
+    if (auto.stream) auto.stream.getTracks().forEach((t) => t.stop());
+    try { auto.src && auto.src.disconnect(); auto.an && auto.an.disconnect(); auto.sink && auto.sink.disconnect(); } catch {}
+    if (auto.wake) { auto.wake.release().catch(() => {}); auto.wake = null; }
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
+    Object.assign(auto, { on: false, stream: null, src: null, an: null, sink: null, timer: 0 });
+    renderAuto();
+    setStatus('Listens with the mic and interrupts for you');
+  }
+
+  function renderAuto() {
+    toggle.setAttribute('aria-checked', String(auto.on));
+    $('autoBody').hidden = !auto.on;
+    $('sens').value = settings.sens;
+    document.querySelectorAll('#barksN button').forEach((b) => b.classList.toggle('on', +b.dataset.v === settings.barksN));
+  }
+
+  toggle.addEventListener('click', async () => {
+    if (auto.on) { stopAuto(); return; }
+    toggle.disabled = true;
+    await startAuto();
+    toggle.disabled = false;
+  });
+  $('sens').addEventListener('input', (e) => { settings.sens = +e.target.value; save(); });
+  $('barksN').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; settings.barksN = +b.dataset.v; save(); renderAuto(); });
 
   // ---------- sound view ----------
   const fToSlider = (f) => Math.round((Math.log(f / MIN_F) / Math.log(maxF() / MIN_F)) * 1000);
@@ -515,9 +741,13 @@
   }
   document.querySelector('nav').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) show(b.dataset.view); });
   $('toneChip').addEventListener('click', () => show('sound'));
-  document.addEventListener('visibilitychange', () => { if (document.hidden) holdStop(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { holdStop(); return; }
+    // Back in the app: wake audio and keep the screen on again.
+    if (auto.on) { audio(); keepAwake(); }
+  });
 
-  renderGoal(); renderSound(); renderStats();
+  renderGoal(); renderSound(); renderStats(); renderAuto();
 
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

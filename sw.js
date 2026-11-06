@@ -1,5 +1,5 @@
 // Offline support: cache the app, serve from cache, refresh in the background.
-const CACHE = 'hush-v1';
+const CACHE = 'hush-v2';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon.svg', 'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
