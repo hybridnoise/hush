@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hush</title>
+<meta name="description" content="Interrupt barking, reward quiet.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Hush">
+<meta name="theme-color" content="#0e1418">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #0e1418;
+    --surface: #172026;
+    --surface-2: #1f2a31;
+    --line: #2a363e;
+    --text: #eef3f5;
+    --muted: #93a3ad;
+    --interrupt: #f2a03d;
+    --interrupt-ink: #2a1a05;
+    --good: #3fcf8e;
+    --good-ink: #05261a;
+    --accent: #6cc4d8;
+    --radius: 22px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
+  body {
+    font: 16px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    display: flex; flex-direction: column;
+    padding-top: env(safe-area-inset-top);
+    overscroll-behavior: none;
+  }
+  button { font: inherit; color: inherit; touch-action: manipulation; cursor: pointer; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px 4px;
+  }
+  header h1 { margin: 0; font-size: 22px; letter-spacing: -0.01em; }
+  .chip {
+    border: 1px solid var(--line); background: var(--surface); border-radius: 999px;
+    padding: 6px 12px; font-size: 14px; color: var(--muted);
+  }
+
+  main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .view { display: none; padding: 12px 20px 24px; max-width: 520px; margin: 0 auto; }
+  .view.on { display: flex; flex-direction: column; gap: 14px; }
+
+  .hint { margin: 0; color: var(--muted); font-size: 15px; text-align: center; min-height: 2.9em; }
+
+  /* Big action buttons */
+  .big {
+    position: relative; overflow: hidden;
+    border: 0; border-radius: var(--radius);
+    min-height: 150px; padding: 18px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    transition: transform .08s ease, filter .15s ease;
+  }
+  .big:active, .big.pressed { transform: scale(0.98); filter: brightness(1.1); }
+  .big-label { font-size: 30px; font-weight: 700; letter-spacing: -0.01em; position: relative; }
+  .big-sub { font-size: 15px; opacity: .75; position: relative; }
+  .interrupt { background: var(--interrupt); color: var(--interrupt-ink); }
+  .interrupt.playing { filter: brightness(1.15); }
+  .good { background: var(--surface-2); color: var(--text); border: 2px solid var(--line); }
+  .good .fill {
+    position: absolute; inset: 0; background: var(--good); opacity: .22;
+    transform-origin: left; transform: scaleX(var(--p, 0));
+  }
+  .good.ready { background: var(--good); color: var(--good-ink); border-color: var(--good); }
+  .good.ready .fill { display: none; }
+
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px;
+  }
+  .stepper { display: flex; align-items: center; gap: 10px; }
+  .stepper button {
+    width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--surface-2); font-size: 22px; line-height: 1;
+  }
+  .stepper b { min-width: 3.2em; text-align: center; font-variant-numeric: tabular-nums; }
+  .label { font-size: 14px; color: var(--muted); }
+  .stats { display: flex; gap: 10px; }
+  .stat { flex: 1; text-align: center; }
+  .stat b { display: block; font-size: 28px; font-variant-numeric: tabular-nums; }
+  .stat.i b { color: var(--interrupt); }
+  .stat.g b { color: var(--good); }
+
+  .week { display: flex; align-items: flex-end; gap: 8px; height: 70px; margin-top: 10px; }
+  .day { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+  .bar { width: 100%; max-width: 26px; border-radius: 4px 4px 2px 2px; background: var(--good); min-height: 2px; opacity: .85; }
+  .day.today .bar { opacity: 1; }
+  .day span { font-size: 11px; color: var(--muted); }
+
+  /* Sound view */
+  .freq { text-align: center; font-size: 46px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .freq small { font-size: 20px; color: var(--muted); font-weight: 500; }
+  input[type=range] { width: 100%; accent-color: var(--accent); height: 32px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chips button, .seg button {
+    border: 1px solid var(--line); background: var(--surface-2); border-radius: 12px;
+    padding: 9px 12px; font-size: 14px;
+  }
+  .chips button.on, .seg button.on { background: var(--accent); color: #062026; border-color: var(--accent); font-weight: 600; }
+  .seg { display: flex; gap: 6px; }
+  .seg button { flex: 1; }
+  .note { font-size: 13px; color: var(--muted); margin: 0; }
+  .hold { background: var(--accent); color: #062026; min-height: 110px; }
+
+  /* Guide */
+  .guide h2 { font-size: 18px; margin: 6px 0 2px; }
+  .guide ol, .guide ul { margin: 0; padding-left: 1.2em; }
+  .guide li { margin: 8px 0; }
+  .guide p { margin: 6px 0; }
+  .guide .card { -webkit-user-select: text; user-select: text; }
+  .warn { border-color: #5a4423; }
+
+  nav {
+    display: flex; border-top: 1px solid var(--line); background: var(--surface);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  nav button {
+    flex: 1; border: 0; background: none; padding: 10px 0 8px; font-size: 12px; color: var(--muted);
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  nav button svg { width: 24px; height: 24px; }
+  nav button.on { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Hush</h1>
+  <button class="chip" id="toneChip" aria-label="Sound settings">10 kHz · Pulse</button>
+</header>
+
+<main>
+  <!-- TRAIN -->
+  <section class="view on" id="v-train">
+    <p class="hint" id="hint">Barking? Tap <b>Interrupt</b> once. When the dogs go quiet, tap <b>Good quiet</b> and give a treat.</p>
+
+    <button class="big interrupt" id="btnInterrupt">
+      <span class="big-label">Interrupt</span>
+      <span class="big-sub" id="intSub">10 kHz · pulse</span>
+    </button>
+
+    <button class="big good" id="btnGood">
+      <span class="fill"></span>
+      <span class="big-label" id="goodLabel">Good quiet</span>
+      <span class="big-sub" id="goodSub">click, then treat</span>
+    </button>
+
+    <div class="card row">
+      <div>
+        <div>Quiet goal</div>
+        <div class="label">Wait this long before you click</div>
+      </div>
+      <div class="stepper">
+        <button id="goalDown" aria-label="Shorter">−</button>
+        <b id="goalVal">3 s</b>
+        <button id="goalUp" aria-label="Longer">+</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="stats">
+        <div class="stat i"><b id="sInt">0</b><span class="label">interrupts today</span></div>
+        <div class="stat g"><b id="sGood">0</b><span class="label">quiet rewards today</span></div>
+      </div>
+      <div class="week" id="week" aria-label="Quiet rewards, last 7 days"></div>
+    </div>
+  </section>
+
+  <!-- SOUND -->
+  <section class="view" id="v-sound">
+    <div class="freq" id="freqVal">10.0 <small>kHz</small></div>
+    <input type="range" id="freq" min="0" max="1000" step="1" aria-label="Frequency">
+    <div class="chips" id="presets">
+      <button data-f="6000">6 kHz · Field whistle</button>
+      <button data-f="10000">10 kHz · Sharp</button>
+      <button data-f="15000">15 kHz · High</button>
+      <button data-f="18500">18.5 kHz · Near-silent</button>
+    </div>
+
+    <div>
+      <div class="label">Pattern</div>
+      <div class="seg" id="pattern">
+        <button data-v="steady">Steady</button>
+        <button data-v="pulse">Pulse</button>
+        <button data-v="warble">Warble</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="label">Interrupt length</div>
+      <div class="seg" id="len">
+        <button data-v="0.5">0.5 s</button>
+        <button data-v="1">1 s</button>
+        <button data-v="2">2 s</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="label">Volume</div>
+      <input type="range" id="vol" min="0.05" max="1" step="0.05" aria-label="Volume">
+    </div>
+
+    <button class="big hold" id="btnHold">
+      <span class="big-label">Hold to test</span>
+      <span class="big-sub">this is the Interrupt sound</span>
+    </button>
+
+    <p class="note">Most adults can't hear above about 15–17 kHz, but kids often can. iPhone speakers get weak above about 18 kHz, and no phone can make a true "silent" whistle (those go above 23 kHz). Pick a tone your dogs react to. It doesn't need to be silent.</p>
+    <p class="note">No sound? Turn up the volume and check that the ring/silent switch isn't on silent.</p>
+  </section>
+
+  <!-- GUIDE -->
+  <section class="view guide" id="v-guide">
+    <div class="card">
+      <h2>How it works</h2>
+      <p>The sound doesn't punish barking. It <b>interrupts</b> it, and that gives you a moment of quiet to <b>reward</b>. Rewarding quiet is what changes the habit. Reward-based training is linked to less stress and faster learning than harsh methods.</p>
+    </div>
+
+    <div class="card">
+      <h2>1 · Charge the sound (first 3 days)</h2>
+      <p>Before you use it on barking, teach the dogs that the sound means good things.</p>
+      <ol>
+        <li>With calm dogs, tap <b>Interrupt</b>, then give a treat right away.</li>
+        <li>Do 10 of these, 2–3 times a day.</li>
+        <li>It's working when the dogs look at you or run to you at the sound.</li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h2>2 · When they bark</h2>
+      <ol>
+        <li>Tap <b>Interrupt</b> <b>once</b>. Repeating it over and over turns it into background noise.</li>
+        <li>Wait for quiet. The Good button fills up as you reach your quiet goal.</li>
+        <li>Tap <b>Good quiet</b> (it clicks) and give a treat within a second or two.</li>
+        <li>Start with a 1–3 second goal. Make it longer as they improve.</li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h2>3 · Add the word</h2>
+      <p>Once they go quiet reliably, say <b>"Quiet"</b> just before you tap Good. Over time the word alone will work.</p>
+    </div>
+
+    <div class="card">
+      <h2>Make it easier</h2>
+      <ul>
+        <li>Find the trigger: window, doorbell, passing dogs, boredom.</li>
+        <li>Block window views and use white noise for outside sounds.</li>
+        <li>More exercise and chew toys reduce barking from boredom.</li>
+        <li>Don't yell. To a dog, it sounds like you're barking along.</li>
+      </ul>
+    </div>
+
+    <div class="card warn">
+      <h2>Be kind to their ears</h2>
+      <ul>
+        <li>Never hold the phone near a dog's head.</li>
+        <li>Don't use the sound as punishment, and don't play it constantly.</li>
+        <li>If a dog seems scared (cowering, hiding), stop and use a lower, softer tone.</li>
+        <li>Sounds don't help barking from anxiety, such as when you leave. Talk to your vet or a behaviorist about that.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<nav>
+  <button class="on" data-view="train">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><ellipse cx="12" cy="16" rx="5" ry="4"/><circle cx="6" cy="10" r="2"/><circle cx="10" cy="6.5" r="2"/><circle cx="14" cy="6.5" r="2"/><circle cx="18" cy="10" r="2"/></svg>
+    Train
+  </button>
+  <button data-view="sound">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 10v4M7 7v10M11 4v16M15 8v8M19 11v2"/></svg>
+    Sound
+  </button>
+  <button data-view="guide">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 8h6"/></svg>
+    Guide
+  </button>
+</nav>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- storage (best effort) ----------
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('hush.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem('hush.' + k, JSON.stringify(v)); } catch {} },
+  };
+  const settings = Object.assign({ freq: 10000, pattern: 'pulse', len: 1, vol: 0.8, goal: 3 }, store.get('settings', {}));
+  const save = () => store.set('settings', settings);
+
+  // ---------- audio ----------
+  let ctx = null, master = null, clickBuf = null;
+  const MIN_F = 1000;
+  const maxF = () => Math.min(22000, (ctx ? ctx.sampleRate : 48000) / 2 - 1000);
+
+  function audio() {
+    if (!ctx) {
+      // Let audio play even when the ring/silent switch is on silent (Safari 17+).
+      try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      master = ctx.createGain();
+      master.gain.value = settings.vol;
+      master.connect(ctx.destination);
+      clickBuf = makeClick(ctx);
+    }
+    if (ctx.state !== 'running') ctx.resume();
+    return ctx;
+  }
+  // iOS only unlocks audio on certain gestures, so unlock on the first tap anywhere.
+  const unlock = () => {
+    const c = audio();
+    const b = c.createBuffer(1, 1, c.sampleRate), s = c.createBufferSource();
+    s.buffer = b; s.connect(c.destination); s.start();
+  };
+  ['touchend', 'click'].forEach((e) => document.addEventListener(e, unlock, { once: true, capture: true }));
+
+  function startTone() {
+    const c = audio(), t = c.currentTime;
+    const f = Math.min(settings.freq, maxF());
+    const osc = c.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = f;
+    const shape = c.createGain();
+    const env = c.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(1, t + 0.015);
+    osc.connect(shape); shape.connect(env); env.connect(master);
+
+    let lfo = null;
+    if (settings.pattern === 'pulse') {
+      // On/off about 6 times a second.
+      shape.gain.value = 0.5;
+      lfo = c.createOscillator(); lfo.type = 'square'; lfo.frequency.value = 6;
+      const depth = c.createGain(); depth.gain.value = 0.5;
+      lfo.connect(depth); depth.connect(shape.gain);
+    } else if (settings.pattern === 'warble') {
+      // Pitch wobbles ±6%, like a pea whistle.
+      lfo = c.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 7;
+      const depth = c.createGain(); depth.gain.value = f * 0.06;
+      lfo.connect(depth); depth.connect(osc.frequency);
+    }
+    osc.start(t); if (lfo) lfo.start(t);
+
+    let stopped = false;
+    return {
+      stop(at) {
+        if (stopped) return; stopped = true;
+        const now = c.currentTime, s = Math.max(at ?? now, now);
+        env.gain.cancelScheduledValues(s);
+        env.gain.setValueAtTime(s === now ? env.gain.value : 1, s);
+        env.gain.linearRampToValueAtTime(0, s + 0.03);
+        osc.stop(s + 0.05); if (lfo) lfo.stop(s + 0.05);
+      },
+    };
+  }
+
+  // A two-part "click-clack" like a box clicker.
+  function makeClick(c) {
+    const sr = c.sampleRate, buf = c.createBuffer(1, Math.ceil(sr * 0.08), sr), d = buf.getChannelData(0);
+    const part = (offset, f, decay) => {
+      const start = Math.floor(offset * sr);
+      for (let n = 0; n < sr * 0.03 && start + n < d.length; n++) {
+        const tt = n / sr;
+        d[start + n] += (Math.sin(2 * Math.PI * f * tt) * 0.7 + (Math.random() * 2 - 1) * 0.5) * Math.exp(-tt / decay);
+      }
+    };
+    part(0, 3400, 0.003);
+    part(0.045, 2600, 0.004);
+    return buf;
+  }
+  function playClick() {
+    const c = audio(), s = c.createBufferSource(), g = c.createGain();
+    s.buffer = clickBuf; g.gain.value = 1.5;
+    s.connect(g); g.connect(master); s.start();
+  }
+
+  // ---------- daily log ----------
+  const dayKey = (d = new Date()) => d.toLocaleDateString('en-CA'); // YYYY-MM-DD
+  const log = store.get('log', {});
+  function bump(field) {
+    const k = dayKey();
+    log[k] = log[k] || { i: 0, g: 0 };
+    log[k][field]++;
+    // Keep about two months of history.
+    const keys = Object.keys(log).sort();
+    while (keys.length > 60) delete log[keys.shift()];
+    store.set('log', log);
+    renderStats();
+  }
+  function renderStats() {
+    const today = log[dayKey()] || { i: 0, g: 0 };
+    $('sInt').textContent = today.i;
+    $('sGood').textContent = today.g;
+    const days = [];
+    for (let n = 6; n >= 0; n--) { const d = new Date(); d.setDate(d.getDate() - n); days.push(d); }
+    const vals = days.map((d) => (log[dayKey(d)] || {}).g || 0);
+    const max = Math.max(1, ...vals);
+    $('week').innerHTML = days.map((d, i) =>
+      `<div class="day${i === 6 ? ' today' : ''}"><div class="bar" style="height:${Math.round((vals[i] / max) * 48)}px" title="${vals[i]}"></div><span>${d.toLocaleDateString(undefined, { weekday: 'narrow' })}</span></div>`
+    ).join('');
+  }
+
+  // ---------- train view ----------
+  const btnInt = $('btnInterrupt'), btnGood = $('btnGood');
+  let playing = null, waitRaf = 0, waiting = false;
+  const DEFAULT_HINT = $('hint').innerHTML;
+
+  btnInt.addEventListener('click', () => {
+    if (playing) return; // one interrupt at a time
+    const c = audio();
+    playing = startTone();
+    playing.stop(c.currentTime + settings.len);
+    btnInt.classList.add('playing');
+    setTimeout(() => { playing = null; btnInt.classList.remove('playing'); }, settings.len * 1000 + 60);
+    bump('i');
+    startWait();
+  });
+
+  function startWait() {
+    cancelAnimationFrame(waitRaf);
+    waiting = true;
+    btnGood.classList.remove('ready');
+    $('hint').innerHTML = 'Wait for quiet…';
+    const t0 = performance.now() + settings.len * 1000, total = settings.goal * 1000;
+    const step = (now) => {
+      const p = Math.max(0, Math.min(1, (now - t0) / total));
+      btnGood.style.setProperty('--p', p);
+      if (p < 1) { waitRaf = requestAnimationFrame(step); return; }
+      btnGood.classList.add('ready');
+      $('goodLabel').textContent = 'Click now';
+      $('goodSub').textContent = 'if they’re still quiet';
+      $('hint').innerHTML = 'Quiet? Tap <b>Click now</b>, then treat. Barked again? Wait, then try again.';
+    };
+    waitRaf = requestAnimationFrame(step);
+  }
+  function resetGood() {
+    cancelAnimationFrame(waitRaf);
+    waiting = false;
+    btnGood.classList.remove('ready');
+    btnGood.style.setProperty('--p', 0);
+    $('goodLabel').textContent = 'Good quiet';
+    $('goodSub').textContent = 'click, then treat';
+  }
+  btnGood.addEventListener('click', () => {
+    playClick();
+    bump('g');
+    resetGood();
+    $('hint').innerHTML = 'Nice! Treat now. 🐾';
+    setTimeout(() => { if (!waiting) $('hint').innerHTML = DEFAULT_HINT; }, 2500);
+  });
+
+  const renderGoal = () => { $('goalVal').textContent = settings.goal + ' s'; };
+  $('goalDown').addEventListener('click', () => { settings.goal = Math.max(1, settings.goal - 1); save(); renderGoal(); });
+  $('goalUp').addEventListener('click', () => { settings.goal = Math.min(60, settings.goal + (settings.goal >= 10 ? 5 : 1)); save(); renderGoal(); });
+
+  // ---------- sound view ----------
+  const fToSlider = (f) => Math.round((Math.log(f / MIN_F) / Math.log(maxF() / MIN_F)) * 1000);
+  const sliderToF = (v) => Math.round(MIN_F * Math.pow(maxF() / MIN_F, v / 1000) / 50) * 50;
+  const patternName = { steady: 'Steady', pulse: 'Pulse', warble: 'Warble' };
+
+  function renderSound() {
+    const f = Math.min(settings.freq, maxF());
+    $('freqVal').innerHTML = (f / 1000).toFixed(1) + ' <small>kHz</small>';
+    $('freq').value = fToSlider(f);
+    document.querySelectorAll('#presets button').forEach((b) => b.classList.toggle('on', +b.dataset.f === settings.freq));
+    document.querySelectorAll('#pattern button').forEach((b) => b.classList.toggle('on', b.dataset.v === settings.pattern));
+    document.querySelectorAll('#len button').forEach((b) => b.classList.toggle('on', +b.dataset.v === settings.len));
+    $('vol').value = settings.vol;
+    const label = (f / 1000).toFixed(f % 1000 ? 1 : 0) + ' kHz';
+    $('toneChip').textContent = label + ' · ' + patternName[settings.pattern];
+    $('intSub').textContent = label + ' · ' + settings.pattern + ' · ' + settings.len + ' s';
+  }
+
+  $('freq').addEventListener('input', (e) => { settings.freq = sliderToF(+e.target.value); save(); renderSound(); });
+  $('presets').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; settings.freq = +b.dataset.f; save(); renderSound(); });
+  $('pattern').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; settings.pattern = b.dataset.v; save(); renderSound(); });
+  $('len').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; settings.len = +b.dataset.v; save(); renderSound(); });
+  $('vol').addEventListener('input', (e) => { settings.vol = +e.target.value; save(); if (master) master.gain.value = settings.vol; });
+
+  // Hold-to-test, with a 10 second safety stop.
+  const hold = $('btnHold');
+  let held = null, holdTimer = 0;
+  const holdStop = () => { clearTimeout(holdTimer); if (held) { held.stop(); held = null; } hold.classList.remove('pressed'); };
+  hold.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    holdStop();
+    held = startTone();
+    hold.classList.add('pressed');
+    holdTimer = setTimeout(holdStop, 10000);
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => hold.addEventListener(ev, holdStop));
+  hold.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  // ---------- tabs ----------
+  function show(view) {
+    document.querySelectorAll('.view').forEach((v) => v.classList.toggle('on', v.id === 'v-' + view));
+    document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('on', b.dataset.view === view));
+    holdStop();
+  }
+  document.querySelector('nav').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) show(b.dataset.view); });
+  $('toneChip').addEventListener('click', () => show('sound'));
+  document.addEventListener('visibilitychange', () => { if (document.hidden) holdStop(); });
+
+  renderGoal(); renderSound(); renderStats();
+
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
